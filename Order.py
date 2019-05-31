@@ -1,3 +1,4 @@
+""" Order and Order Item classes """
 
 class Order:
     def __init__(self, check_num, check_time, check_name, check_amount, check_tax, check_type, check_pay_type):
