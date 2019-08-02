@@ -12,8 +12,8 @@ formatter = logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s')
 
 # Define logger with name __name__. Set level
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-#logger.setLevel(logging.INFO)
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Define log file and set formatting for file entries
 file_handler = logging.FileHandler('/home/gene/log/DD/ordertx.log')
@@ -66,9 +66,11 @@ def main():
             #    continue
 
             # It looks like deleted checks have a send count of 1 and a cover count of 0. Skip.
+            # Also, this could be screwed up checks, generally. I'll deal with it later so I can get some
+            # logging of the entire set of data.
             check_cover_count = int(trans.find('./CHECK/COVERCOUNT').text)
-            if check_send_count == 1 and check_cover_count == 0:
-                continue
+            #if check_send_count == 1 and check_cover_count == 0:
+            #    continue
 
             # Collect data elements that we need from the check section
             check_num = int(trans.find('./CHECK/CHECKNUMBER').text)
@@ -91,6 +93,24 @@ def main():
             check_tax = float(trans.find('./CHECK/TAX').text)
             check_amt = float(trans.find('./CHECK/CHECKTOTAL').text) - float(check_tax)
 
+            # It looks like deleted checks have a send count of 1 and a cover count of 0. Skip.
+            # Or, the check could just be screwed up. Log and skip.
+            if check_send_count == 1 and check_cover_count == 0:
+                logger_out_str = "\nCheck has Send Count of 1 and Cover Count of 0. Skipping."
+                logger_out_str += "\n Check#: {}"
+                logger_out_str += "\n Check Date: {}"
+                logger_out_str += "\n Check time: {}"
+                logger_out_str += "\n Name: {}"
+                logger_out_str += "\n Send Count: {}"
+                logger_out_str += "\n Cover Count: {}"
+                logger_out_str += "\n Check Amount: {}"
+                logger_out_str += "\n Check Tax: {}"
+                logger.info(logger_out_str.format(check_num, check_date, check_time, check_name,
+                                                  check_send_count, check_cover_count, check_amt, check_tax))
+
+                # Skip to next trans.
+                continue
+
             # Move to receipt section of transaction to get the payment type(Cash, credit card, etc.)
             # Sometime receipt section isn't present for some reason, handle. Fuck you DD!
             try:
@@ -104,8 +124,10 @@ def main():
                 logger_out_str += "\n Name: {}"
                 logger_out_str += "\n Send Count: {}"
                 logger_out_str += "\n Cover Count: {}"
+                logger_out_str += "\n Check Amount: {}"
+                logger_out_str += "\n Check Tax: {}"
                 logger.info(logger_out_str.format(check_num, check_date, check_time, check_name,
-                                                  check_send_count, check_cover_count))
+                                                  check_send_count, check_cover_count, check_amt, check_tax))
 
                 # Skip to next trans.
                 continue
@@ -129,9 +151,17 @@ def main():
             if check_send_count == 1:
                 check_is_new = True
 
+            # If the send count is 2 and cover count is 1, it maybe a messed up check coming for round 2.
+            # The guess is that a send count of 1, but cover count of 0 is an incomplete check somehow. Maybe this
+            # is the fixed/completed version. We'll see.
+            # Treat it as new and try to insert it.
+            elif (check_send_count, check_cover_count) == (2, 1):
+                logger.info("It's a check with send count 2 and cover count 1. Treat as a new check.")
+                check_is_new = True
+
             # If the send count is 2 and cover count is 0 with a check amount of $0.00, it's a voided check.
             elif (check_send_count, check_cover_count, check_amt) == (2, 0, 0):
-                logger.debug("It's an update to an order. Void check.")
+                logger.info("It's an update to an order. Void check.")
                 check_is_new = False
 
             # Otherwise, it's something else entirely. Skip.
