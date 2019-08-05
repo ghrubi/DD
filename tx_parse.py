@@ -154,10 +154,11 @@ def main():
             # If the send count is 2 and cover count is 1, it maybe a messed up check coming for round 2.
             # The guess is that a send count of 1, but cover count of 0 is an incomplete check somehow. Maybe this
             # is the fixed/completed version. We'll see.
-            # Treat it as new and try to insert it.
+            # This may also be an updated check and that's why the send count is 2. Set check to not new, and
+            # let the DB update function deal with whether it's new or and update.
             elif (check_send_count, check_cover_count) == (2, 1):
-                logger.info("It's a check with send count 2 and cover count 1. Treat as a new check.")
-                check_is_new = True
+                logger.info("It's a check with send count 2 and cover count 1. Set to updated check. The DB will deal.")
+                check_is_new = False
 
             # If the send count is 2 and cover count is 0 with a check amount of $0.00, it's a voided check.
             elif (check_send_count, check_cover_count, check_amt) == (2, 0, 0):
@@ -198,13 +199,13 @@ def main():
 
                 # Create an OrderItem, and add to Order
                 # If check is not new, only add negative quantity items to order
-                if check_is_new:
-                    order_item = OrderItem(item_desc, item_price, item_quantity, item_is_discount)
-                    order.add(order_item)
-                else:
-                    if item_quantity < 0:
-                        order_item = OrderItem(item_desc, item_price, item_quantity, item_is_discount)
-                        order.add(order_item)
+                #if check_is_new:
+                order_item = OrderItem(item_desc, item_price, item_quantity, item_is_discount)
+                order.add(order_item)
+                #else:
+                #    if item_quantity < 0:
+                #        order_item = OrderItem(item_desc, item_price, item_quantity, item_is_discount)
+                #        order.add(order_item)
 
             # End for item
             logger.debug("\n")
